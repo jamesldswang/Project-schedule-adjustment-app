@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #f8fafc;
+    color: #0f172a;
+  }
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.baseline-hatch-amber {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(217, 119, 6, 0.16),
+    rgba(217, 119, 6, 0.16) 4px,
+    rgba(254, 243, 199, 0.55) 4px,
+    rgba(254, 243, 199, 0.55) 8px
+  );
+}
+
+.baseline-hatch-rose {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(225, 29, 72, 0.14),
+    rgba(225, 29, 72, 0.14) 4px,
+    rgba(255, 228, 230, 0.5) 4px,
+    rgba(255, 228, 230, 0.5) 8px
+  );
+}
+
+.baseline-hatch-teal {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(13, 148, 136, 0.14),
+    rgba(13, 148, 136, 0.14) 4px,
+    rgba(204, 251, 241, 0.5) 4px,
+    rgba(204, 251, 241, 0.5) 8px
+  );
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

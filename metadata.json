@@ -1,0 +1,6 @@
+{
+  "name": "時程對照台 — 專案時程與版本對照管理平台",
+  "description": "專案任務工期設定、Milestone 里程碑視圖、Gantt Chart 甘特圖與多版本修訂原因追蹤對照平台。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
