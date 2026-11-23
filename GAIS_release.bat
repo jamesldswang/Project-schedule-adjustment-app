@@ -24,17 +24,12 @@ goto :end_fail
 :dir_ok
 echo Working Dir : %CD%
 
+set "DEFAULT_HTTPS_REMOTE=https://github.com/jamesldswang/Project-schedule-adjustment-app.git"
+set "REPO_URL=https://github.com/jamesldswang/Project-schedule-adjustment-app"
+
 set "RAW_VER=%~1"
 if not defined RAW_VER if exist "package.json" (
     for /f "delims=" %%V in ('node -p "require('./package.json').version" 2^>nul') do set "RAW_VER=%%V"
-)
-
-set "REPO_URL=https://github.com/jamesldswang/Project-schedule-adjustment-app"
-
-if not exist ".git" (
-    echo [INFO] No .git in current folder ^(extracted release package^).
-    echo        Skipping Git sync/tag and launching current folder directly.
-    goto :have_ver
 )
 
 where git >nul 2>&1
@@ -43,12 +38,22 @@ if errorlevel 1 (
     goto :have_ver
 )
 
+if not exist ".git" (
+    echo [INIT] Initializing local Git repository ^(branch: main^)...
+    git init -b main
+    if errorlevel 1 goto :fail
+    git config user.name "jamesldswang"
+    git config user.email "james.wang@nadisystem.com.tw"
+    git add -A
+    git commit -m "chore(release): initial import"
+)
+
 set "RAW_REMOTE="
 for /f "delims=" %%U in ('git remote get-url origin 2^>nul') do set "RAW_REMOTE=%%U"
 if not defined RAW_REMOTE (
-    echo [WARN] Git remote 'origin' is not configured yet.
-    echo        Run: git remote add origin %REPO_URL%.git
-    goto :have_ver
+    echo [INIT] Adding GitHub remote origin: %DEFAULT_HTTPS_REMOTE%
+    git remote add origin "%DEFAULT_HTTPS_REMOTE%"
+    set "RAW_REMOTE=%DEFAULT_HTTPS_REMOTE%"
 )
 
 for /f "delims=" %%U in ('node -e "var u=process.argv[1].trim().replace(/\.git$/,'');if(u.indexOf('git@')===0){u='https://'+u.slice(4).replace(':','/')}else if(u.indexOf('ssh://git@')===0){u='https://'+u.slice(10)}console.log(u);" "%RAW_REMOTE%" 2^>nul') do set "REPO_URL=%%U"
@@ -57,39 +62,54 @@ set "CUR_BRANCH="
 for /f "delims=" %%B in ('git branch --show-current 2^>nul') do set "CUR_BRANCH=%%B"
 if not defined CUR_BRANCH set "CUR_BRANCH=main"
 echo Branch      : %CUR_BRANCH%
+echo Remote      : %RAW_REMOTE%
 echo.
+
+REM Ensure GitHub credential helper / CLI auth is active before network operations
+git config --global credential.helper manager >nul 2>&1
+where gh >nul 2>&1
+if not errorlevel 1 (
+    gh auth status >nul 2>&1
+    if errorlevel 1 (
+        echo [AUTH] GitHub CLI not logged in. Launching browser login...
+        gh auth login --hostname github.com --git-protocol https --web
+        if not errorlevel 1 gh auth setup-git
+    )
+)
 
 set "OLD_HEAD="
 for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "OLD_HEAD=%%H"
 
 echo [1/4] Syncing remote branch and tags ^(git fetch + git pull origin %CUR_BRANCH%^) ...
-git fetch origin --tags --force
-if errorlevel 1 goto :fail
+git fetch origin --tags --force 2>nul
+if errorlevel 1 (
+    echo [INFO] Remote fetch skipped or repository is empty/requires auth on push.
+    goto :after_pull
+)
 
 git ls-remote --exit-code --heads origin "%CUR_BRANCH%" >nul 2>&1
-if not errorlevel 1 (
-    git pull origin "%CUR_BRANCH%"
-    if errorlevel 1 (
-        echo.
-        echo [INFO] git pull blocked by local changes. Checking if only .bat files differ...
-        node -e "const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);const onlyBat=out.length>0 && out.every(l=>l.slice(3).trim().endsWith('.bat') || l.slice(3).trim().endsWith('.gitattributes'));process.exit(onlyBat?0:1);" >nul 2>&1
-        if errorlevel 1 goto :fail
-
-        echo [INFO] Resetting .bat line-ending state to origin/%CUR_BRANCH% ...
-        git reset --hard "origin/%CUR_BRANCH%"
-        if errorlevel 1 goto :fail
-    )
-) else (
-    echo [INFO] Remote branch %CUR_BRANCH% not on origin yet. Pushing initial branch...
-    git push -u origin "%CUR_BRANCH%"
-    if errorlevel 1 goto :fail
+if errorlevel 1 (
+    echo [INFO] Remote branch %CUR_BRANCH% does not exist on GitHub yet. Will push on step 2.
+    goto :after_pull
 )
+
+git pull origin "%CUR_BRANCH%" --allow-unrelated-histories
+if not errorlevel 1 goto :after_pull
+
+echo.
+echo [INFO] git pull blocked by local changes. Checking if only .bat files differ...
+node -e "const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);const onlyBat=out.length>0 && out.every(l=>l.slice(3).trim().endsWith('.bat') || l.slice(3).trim().endsWith('.gitattributes'));process.exit(onlyBat?0:1);" >nul 2>&1
+if errorlevel 1 goto :fail
+
+echo [INFO] Resetting .bat line-ending state to origin/%CUR_BRANCH% ...
+git reset --hard "origin/%CUR_BRANCH%"
+if errorlevel 1 goto :fail
 
 :after_pull
 set "NEW_HEAD="
 for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "NEW_HEAD=%%H"
 if defined GAIS_RELAUNCHED goto :read_version
-if not "%OLD_HEAD%"=="%NEW_HEAD%" (
+if defined OLD_HEAD if defined NEW_HEAD if not "%OLD_HEAD%"=="%NEW_HEAD%" (
     set "GAIS_RELAUNCHED=1"
     echo [INFO] Updated scripts pulled from GitHub. Continuing with updated script...
     echo.
@@ -117,15 +137,25 @@ if /i "%RAW_VER:~0,1%"=="v" (
 set "PKG_VER=%TAG_NAME:~1%"
 
 if not exist ".git" goto :ensure_local_server
-if not defined RAW_REMOTE goto :ensure_local_server
 where git >nul 2>&1
 if errorlevel 1 goto :ensure_local_server
 
 echo.
-echo [2/4] Checking branch & tag %TAG_NAME% ...
+echo [2/4] Pushing branch %CUR_BRANCH% and checking tag %TAG_NAME% ...
 
-git push origin "%CUR_BRANCH%"
-if errorlevel 1 goto :fail
+git push -u origin "%CUR_BRANCH%"
+if errorlevel 1 (
+    echo.
+    echo [AUTH] Push failed. Launching GitHub authentication setup...
+    if exist "%CD%\setup_github_auth.bat" (
+        call "%CD%\setup_github_auth.bat" --no-pause
+        if errorlevel 1 goto :fail
+        git push -u origin "%CUR_BRANCH%"
+        if errorlevel 1 goto :fail
+    ) else (
+        goto :fail
+    )
+)
 
 git ls-remote --exit-code --tags origin "refs/tags/%TAG_NAME%" >nul 2>&1
 if not errorlevel 1 goto :remote_tag_exists

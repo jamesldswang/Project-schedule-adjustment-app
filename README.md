@@ -97,9 +97,9 @@ npm run build
 ## 版控與持久化機制
 
 - **軟體本身版控**：以 `package.json` 的 `"version"` 為唯一來源，透過 `vite.config.ts` 注入 `__APP_VERSION__` 並顯示於頁尾，搭配 Git Tag (`v1.1.0`) 進行發版追蹤。
-- **GitHub 一鍵發版（`GAIS_release.bat` + GitHub Actions）**：
-  - 專案內建 `.github/workflows/release.yml` 與 Windows 發版腳本 `GAIS_release.bat`（搭配 `start_schedule_app.bat`）。
-  - 設定好 GitHub `origin` 遠端後，於專案目錄執行 `GAIS_release.bat` 即會自動同步分支、建立/推送 `v1.1.0` Tag 並觸發 GitHub Actions 自動執行型別檢查、建置 `dist/` 與發布 GitHub Release（含 `.zip` 打包產物），同時啟動本機伺服器 `http://localhost:3000/`。
+- **GitHub 一鍵發版（`GAIS_release.bat` + `setup_github_auth.bat` + GitHub Actions）**：
+  - 專案內建 `.github/workflows/release.yml`、Windows 發版腳本 `GAIS_release.bat`、`setup_github_auth.bat` 與 `start_schedule_app.bat`。
+  - 預設綁定遠端 `https://github.com/jamesldswang/Project-schedule-adjustment-app.git`；執行 `GAIS_release.bat` 時若尚未完成 GitHub 登入驗證，會自動啟動 GitHub 瀏覽器登入（GitHub CLI / Git Credential Manager OAuth）或引導產生 Ed25519 SSH Key / 寫入 PAT，隨後自動推送分支與 `v1.1.0` Tag 並觸發 GitHub Actions 發布 Release。
 - **雙軌資料持久化**：
   - **雲端同步（已登入 Google 帳號）**：資料寫入 Cloud Firestore（資料庫：`ai-studio-9d411267-f48a-4992-aa88-631914c84b52`），並受 `firestore.rules` 嚴格保護（僅限驗證通過之擁有者存取與修改）。
   - **本機儲存（未登入或離線操作）**：自動儲存於瀏覽器 `localStorage`（鍵值：`planpulse_schedule_projects_v2`）。
