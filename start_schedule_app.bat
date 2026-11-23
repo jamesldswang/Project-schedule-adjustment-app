@@ -27,5 +27,10 @@ if not exist "node_modules" (
     echo [1/2] Dependencies ready ^(node_modules found^).
 )
 
-echo [2/2] Starting Vite server at http://localhost:3000/ ...
-call npm run dev
+if exist "src" (
+    echo [2/2] Starting Vite dev server at http://localhost:3000/ ...
+    call npm run dev
+) else (
+    echo [2/2] Starting Vite preview server ^(dist/^) at http://localhost:3000/ ...
+    call npx vite preview --port=3000 --host=0.0.0.0
+)

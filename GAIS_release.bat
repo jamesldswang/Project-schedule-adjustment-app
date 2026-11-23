@@ -77,6 +77,14 @@ if not errorlevel 1 (
     )
 )
 
+for /f "delims=" %%S in ('git status --porcelain 2^>nul') do (
+    echo [0/4] Local changes detected. Committing updates before sync ...
+    git add -A
+    git commit -m "chore(release): sync workspace updates"
+    goto :after_auto_commit
+)
+:after_auto_commit
+
 set "OLD_HEAD="
 for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "OLD_HEAD=%%H"
 
@@ -93,11 +101,11 @@ if errorlevel 1 (
     goto :after_pull
 )
 
-git pull origin "%CUR_BRANCH%" --allow-unrelated-histories
+git pull origin "%CUR_BRANCH%" --allow-unrelated-histories --no-edit
 if not errorlevel 1 goto :after_pull
 
 echo.
-echo [INFO] git pull blocked by local changes. Checking if only .bat files differ...
+echo [INFO] git pull encountered a conflict. Checking if only .bat files differ...
 node -e "const cp=require('child_process');const out=cp.execSync('git status --porcelain',{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);const onlyBat=out.length>0 && out.every(l=>l.slice(3).trim().endsWith('.bat') || l.slice(3).trim().endsWith('.gitattributes'));process.exit(onlyBat?0:1);" >nul 2>&1
 if errorlevel 1 goto :fail
 
@@ -157,9 +165,26 @@ if errorlevel 1 (
     )
 )
 
-git ls-remote --exit-code --tags origin "refs/tags/%TAG_NAME%" >nul 2>&1
-if not errorlevel 1 goto :remote_tag_exists
+set "HEAD_SHA="
+for /f "delims=" %%H in ('git rev-parse HEAD 2^>nul') do set "HEAD_SHA=%%H"
 
+set "REMOTE_TAG_SHA="
+for /f "delims=" %%H in ('node -e "const cp=require('child_process');const t=process.argv[1];const lines=cp.execSync('git ls-remote --tags origin',{encoding:'utf8'}).trim().split(/\r?\n/);const p=lines.find(l=>l.endsWith('refs/tags/'+t+'^{}'))||lines.find(l=>l.endsWith('refs/tags/'+t));if(p)console.log(p.split(/\s+/)[0]);" "%TAG_NAME%" 2^>nul') do set "REMOTE_TAG_SHA=%%H"
+
+if not defined REMOTE_TAG_SHA goto :create_or_push_tag
+if /i "%REMOTE_TAG_SHA%"=="%HEAD_SHA%" goto :remote_tag_exists
+
+echo       Remote tag %TAG_NAME% points to %REMOTE_TAG_SHA:~0,7%, updating to %HEAD_SHA:~0,7% ...
+git tag -f -a "%TAG_NAME%" -m "Release %TAG_NAME% - Project-schedule-adjustment-app"
+if errorlevel 1 goto :fail
+echo.
+echo [3/4] Pushing updated tag %TAG_NAME% to trigger GitHub Actions Release ...
+git push origin "refs/tags/%TAG_NAME%" --force
+if errorlevel 1 goto :fail
+echo [DONE] Pushed %TAG_NAME%. GitHub Actions will build and publish Project-schedule-adjustment-app-%TAG_NAME%.
+goto :ensure_local_server
+
+:create_or_push_tag
 git rev-parse -q --verify "refs/tags/%TAG_NAME%" >nul 2>&1
 if not errorlevel 1 goto :push_existing_tag
 
@@ -181,7 +206,7 @@ goto :ensure_local_server
 
 :remote_tag_exists
 git fetch origin "refs/tags/%TAG_NAME%:refs/tags/%TAG_NAME%" --force >nul 2>&1
-echo [DONE] Tag %TAG_NAME% already exists on GitHub ^(auto-released by Actions^).
+echo [DONE] Tag %TAG_NAME% already exists on GitHub at HEAD ^(auto-released by Actions^).
 
 :ensure_local_server
 echo.
