@@ -2,6 +2,25 @@
 
 本專案採用語意化版號規範（Semantic Versioning），軟體版號以 `package.json` 為單一來源。
 
+## [1.2.0] - 2026-11-23
+
+### 新增 (Added)
+- **查核點 Milestone → Task 階層排程**（`CheckpointScheduleTable`）：
+  - 查核點即 Milestone，可於其下新增 / 刪除多個 Task，並可展開或收合。
+  - Task 可設定 Start、Duration（工作天）、OOO（Out of Office），表格內直接編輯。
+  - 自動計算 Holiday（週六日 + 台灣國定假日），並推算 `End = Start + Duration + Holiday + OOO`。
+  - Task 可「接續上一個 Task」，開始日自動為上一個 Task 完成後的下一個工作天。
+  - Milestone 自動彙總旗下 Task：起訖日、Duration / OOO 加總、期間 Holiday 與總日曆天，查核點日期同步更新為完成日。
+- 新增工作日曆工具 `src/utils/workCalendar.ts`，內含 2026 年台灣國定假日清單。
+
+### 變更 (Changed)
+- `CheckpointItem` 新增選填 `tasks` 欄位；`firestore.rules` 與 `firebase-blueprint.json` 允許查核點文件寫入 `tasks`（上限 50 筆）。**升級後需重新部署 Firestore 規則。**
+
+### 修正 (Fixed)
+- 修正既有查核點內容變更不會同步至 Firestore 的問題（先前僅同步新增與刪除）。
+
+---
+
 ## [1.1.0] - 2026-11-22
 
 ### 新增 (Added)

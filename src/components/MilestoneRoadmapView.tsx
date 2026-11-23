@@ -2,12 +2,11 @@ import { useState } from 'react';
 import {
   ArrowRight,
   BarChart3,
-  Plus,
-  Trash2,
   AlertCircle,
   CheckCircle2,
   Clock,
 } from 'lucide-react';
+import { CheckpointScheduleTable } from './CheckpointScheduleTable';
 import {
   CheckpointItem,
   PlanRevision,
@@ -39,14 +38,6 @@ export function MilestoneRoadmapView({
   onUpdatePendingNote,
 }: MilestoneRoadmapViewProps) {
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | null>(null);
-  const [addingCheckpoint, setAddingCheckpoint] = useState(false);
-  const [cpDate, setCpDate] = useState('11/12');
-  const [cpTitle, setCpTitle] = useState('');
-  const [cpOwner, setCpOwner] = useState(project.owner);
-  const [cpNote, setCpNote] = useState('');
-  const [cpVersion, setCpVersion] = useState(
-    project.revisions[project.revisions.length - 1]?.version.replace('v', '') || '1.0',
-  );
   const [editingNote, setEditingNote] = useState(false);
 
   const milestones = [...project.tasks]
@@ -106,23 +97,6 @@ export function MilestoneRoadmapView({
       default:
         return 'border-emerald-300 bg-emerald-50/30';
     }
-  };
-
-  const handleAddCheckpoint = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cpTitle.trim()) return;
-    const next: CheckpointItem = {
-      id: `cp-${Date.now()}`,
-      date: cpDate.trim(),
-      title: cpTitle.trim(),
-      owner: cpOwner.trim() || project.owner,
-      note: cpNote.trim(),
-      version: cpVersion.trim() || '1.0',
-    };
-    onUpdateCheckpoints([...project.checkpoints, next]);
-    setCpTitle('');
-    setCpNote('');
-    setAddingCheckpoint(false);
   };
 
   const selectedMilestone = milestones.find((m) => m.id === selectedMilestoneId) || null;
@@ -538,119 +512,8 @@ export function MilestoneRoadmapView({
           </div>
         </div>
 
-        {/* Bottom Checkpoint Audit Table */}
-        <div className="pt-2 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">查核點時程與溝通紀錄</h3>
-            <button
-              type="button"
-              onClick={() => setAddingCheckpoint((v) => !v)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer no-print"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>新增查核點紀錄</span>
-            </button>
-          </div>
-
-          {addingCheckpoint && (
-            <form
-              onSubmit={handleAddCheckpoint}
-              className="grid grid-cols-1 sm:grid-cols-6 gap-2 bg-slate-50 border border-slate-200 rounded-lg p-3 no-print"
-            >
-              <input
-                type="text"
-                required
-                value={cpDate}
-                onChange={(e) => setCpDate(e.target.value)}
-                placeholder="日期 (如 11/12)"
-                className="px-2.5 py-1.5 text-xs font-mono-tabular border border-slate-200 rounded bg-white"
-              />
-              <input
-                type="text"
-                required
-                value={cpTitle}
-                onChange={(e) => setCpTitle(e.target.value)}
-                placeholder="查核點項目"
-                className="sm:col-span-2 px-2.5 py-1.5 text-xs border border-slate-200 rounded bg-white"
-              />
-              <input
-                type="text"
-                value={cpOwner}
-                onChange={(e) => setCpOwner(e.target.value)}
-                placeholder="權責角色"
-                className="px-2.5 py-1.5 text-xs border border-slate-200 rounded bg-white"
-              />
-              <input
-                type="text"
-                value={cpNote}
-                onChange={(e) => setCpNote(e.target.value)}
-                placeholder="說明 / 回覆紀錄"
-                className="px-2.5 py-1.5 text-xs border border-slate-200 rounded bg-white"
-              />
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={cpVersion}
-                  onChange={(e) => setCpVersion(e.target.value)}
-                  placeholder="版本"
-                  className="w-16 px-2 py-1.5 text-xs font-mono-tabular border border-slate-200 rounded bg-white"
-                />
-                <button
-                  type="submit"
-                  className="flex-1 px-3 py-1.5 text-xs font-medium bg-slate-900 text-white rounded cursor-pointer"
-                >
-                  加入
-                </button>
-              </div>
-            </form>
-          )}
-
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-amber-50/70 border-b border-slate-200 text-slate-700 font-semibold">
-                  <th className="py-2 px-3 w-14 text-center">項次</th>
-                  <th className="py-2 px-3 w-28">查核點時程</th>
-                  <th className="py-2 px-3">項目</th>
-                  <th className="py-2 px-3 w-28">權責角色</th>
-                  <th className="py-2 px-3">說明</th>
-                  <th className="py-2 px-3 w-20 text-center">版本</th>
-                  <th className="py-2 px-3 w-10 text-right no-print" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {project.checkpoints.map((cp, index) => (
-                  <tr key={cp.id} className="hover:bg-slate-50/70">
-                    <td className="py-2 px-3 text-center font-mono-tabular text-slate-500">
-                      {index + 1}
-                    </td>
-                    <td className="py-2 px-3 font-mono-tabular font-medium text-slate-800">
-                      {cp.date}
-                    </td>
-                    <td className="py-2 px-3 font-medium text-slate-900">{cp.title}</td>
-                    <td className="py-2 px-3 text-slate-700">{cp.owner}</td>
-                    <td className="py-2 px-3 text-slate-600">{cp.note}</td>
-                    <td className="py-2 px-3 text-center font-mono-tabular text-slate-700">
-                      {cp.version}
-                    </td>
-                    <td className="py-2 px-3 text-right no-print">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onUpdateCheckpoints(project.checkpoints.filter((c) => c.id !== cp.id))
-                        }
-                        className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
-                        title="刪除查核點"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Bottom Checkpoint Schedule: Milestone → Tasks */}
+        <CheckpointScheduleTable project={project} onUpdateCheckpoints={onUpdateCheckpoints} />
       </div>
     </div>
   );

@@ -56,6 +56,7 @@
         "owner": { "type": "string", "minLength": 1, "maxLength": 80 },
         "note": { "type": "string", "maxLength": 1000 },
         "version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "tasks": { "type": "array", "maxItems": 50, "description": "Tasks under this checkpoint milestone: {id, title, owner, startDate, chainPrev, durationDays, oooDays, note}" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },

@@ -116,8 +116,9 @@ service cloud.firestore {
           'projectId', 'ownerId', 'date', 'title', 'owner', 'note', 'version', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'projectId', 'ownerId', 'date', 'title', 'owner', 'note', 'version', 'createdAt', 'updatedAt'
+          'projectId', 'ownerId', 'date', 'title', 'owner', 'note', 'version', 'tasks', 'createdAt', 'updatedAt'
         ])
+        && (!('tasks' in data) || (data.tasks is list && data.tasks.size() <= 50))
         && data.projectId is string && data.projectId == projectId
         && data.ownerId is string && data.ownerId == request.auth.uid
         && data.date is string && data.date.size() >= 1 && data.date.size() <= 32
@@ -214,7 +215,7 @@ service cloud.firestore {
           && incoming().createdAt == existing().createdAt
           && incoming().updatedAt == request.time
           && incoming().diff(existing()).affectedKeys().hasOnly([
-            'date', 'title', 'owner', 'note', 'version', 'updatedAt'
+            'date', 'title', 'owner', 'note', 'version', 'tasks', 'updatedAt'
           ]);
         allow delete: if isValidId(projectId) && isValidId(checkpointId) && isProjectOwner(projectId);
       }

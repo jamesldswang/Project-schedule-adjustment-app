@@ -47,6 +47,18 @@ export interface CheckpointItem {
   owner: string;
   note: string;
   version: string;
+  tasks?: CheckpointTask[]; // 查核點（milestone）底下的工作項目
+}
+
+export interface CheckpointTask {
+  id: string;
+  title: string;
+  owner: string;
+  startDate: string; // YYYY-MM-DD；chainPrev 為 true 時會被自動計算覆蓋
+  chainPrev: boolean; // 接續上一個 task 的完成日（下一個工作天開始）
+  durationDays: number; // 工作天
+  oooDays: number; // Out of Office 天數
+  note: string;
 }
 
 export interface PlanRevision {

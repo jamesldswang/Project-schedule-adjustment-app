@@ -24,6 +24,7 @@ ProjectPlan (/projects/{projectId})
  ├── phases[]          # 階段定義 (001 / 002 / 003, 上限 10 筆)
  ├── tasks[]           # 子集合 /tasks/{taskId}：現行任務與里程碑清單
  ├── checkpoints[]     # 子集合 /checkpoints/{checkpointId}：查核點溝通紀錄
+ │     └── tasks[]     # 查核點（Milestone）下的 Task：start / duration / ooo / chainPrev（上限 50 筆）
  └── revisions[]       # 子集合 /revisions/{revisionId}：不可變歷史版本快照
        ├── version     # 版號字串 (例如 v1.0, v1.1, v1.2, v1.0.0)
        ├── category    # 變更歸因：初始基準 | 客戶延遲 | 需求變更 | 技術調整 | 測試複驗

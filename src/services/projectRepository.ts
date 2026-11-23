@@ -14,6 +14,7 @@ import { db } from '../lib/firebase';
 import { handleFirestoreError, OperationType } from '../lib/firestoreError';
 import {
   CheckpointItem,
+  CheckpointTask,
   PhaseInfo,
   PlanRevision,
   ProjectPlan,
@@ -124,6 +125,7 @@ export async function fetchUserProjects(uid: string): Promise<ProjectPlan[]> {
             owner: String(c.owner || ''),
             note: String(c.note || ''),
             version: String(c.version || '1.0'),
+            tasks: mapCheckpointTasks(c.tasks),
           };
         });
       } catch (err) {
@@ -237,11 +239,7 @@ export async function createProjectInDb(uid: string, project: ProjectPlan): Prom
       batch.set(cpRef, {
         projectId: project.id,
         ownerId: uid,
-        date: cp.date.slice(0, 32),
-        title: cp.title.slice(0, 200),
-        owner: cp.owner.slice(0, 80),
-        note: (cp.note || '').slice(0, 1000),
-        version: cp.version.slice(0, 32),
+        ...checkpointFields(cp),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -328,6 +326,40 @@ export async function updateProjectPendingNoteInDb(
   }
 }
 
+function checkpointFields(cp: CheckpointItem) {
+  return {
+    date: (cp.date || '-').slice(0, 32),
+    title: cp.title.slice(0, 200),
+    owner: (cp.owner || '-').slice(0, 80),
+    note: (cp.note || '').slice(0, 1000),
+    version: (cp.version || '1.0').slice(0, 32),
+    tasks: (cp.tasks || []).slice(0, 50).map((t) => ({
+      id: String(t.id).slice(0, 64),
+      title: (t.title || '').slice(0, 200),
+      owner: (t.owner || '').slice(0, 80),
+      startDate: (t.startDate || '').slice(0, 10),
+      chainPrev: !!t.chainPrev,
+      durationDays: Math.max(0, Math.min(3650, Math.floor(Number(t.durationDays) || 0))),
+      oooDays: Math.max(0, Math.min(3650, Math.floor(Number(t.oooDays) || 0))),
+      note: (t.note || '').slice(0, 500),
+    })),
+  };
+}
+
+function mapCheckpointTasks(raw: unknown): CheckpointTask[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((t: Record<string, unknown>, i) => ({
+    id: String(t.id || `cpt-${i}`),
+    title: String(t.title || ''),
+    owner: String(t.owner || ''),
+    startDate: String(t.startDate || ''),
+    chainPrev: Boolean(t.chainPrev),
+    durationDays: Number(t.durationDays) || 0,
+    oooDays: Number(t.oooDays) || 0,
+    note: String(t.note || ''),
+  }));
+}
+
 export async function syncCheckpointsInDb(
   uid: string,
   projectId: string,
@@ -345,14 +377,18 @@ export async function syncCheckpointsInDb(
         batch.set(doc(db, path, cp.id), {
           projectId,
           ownerId: uid,
-          date: cp.date.slice(0, 32),
-          title: cp.title.slice(0, 200),
-          owner: cp.owner.slice(0, 80),
-          note: (cp.note || '').slice(0, 1000),
-          version: cp.version.slice(0, 32),
+          ...checkpointFields(cp),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+      } else {
+        const prev = prevCheckpoints.find((c) => c.id === cp.id);
+        if (prev && JSON.stringify(checkpointFields(prev)) !== JSON.stringify(checkpointFields(cp))) {
+          batch.update(doc(db, path, cp.id), {
+            ...checkpointFields(cp),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
     });
 
