@@ -2,6 +2,24 @@
 
 本專案採用語意化版號規範（Semantic Versioning），軟體版號以 `package.json` 為單一來源。
 
+## [1.1.0] - 2026-11-22
+
+### 新增 (Added)
+- **雲端資料庫持久化與 Google 帳號同步**：
+  - 整合 Firebase Authentication（`signInWithPopup` Google 登入）與 Cloud Firestore（資料庫 `ai-studio-9d411267-f48a-4992-aa88-631914c84b52`）。
+  - 新增 `src/lib/firebase.ts`、`src/lib/firestoreError.ts` 與 `src/services/projectRepository.ts`，支援專案建立、任務防抖（450ms debounce）批次同步、查核點與備註更新，以及刪除專案時先清除子集合再移除主文件。
+  - 首次使用 Google 登入且雲端尚無專案時，自動匯入預設 `J261113 · 月球寧靜海熔岩管基地專案` 至使用者工作區。
+- **Firestore 安全架構與規則驗證**：
+  - 新增結構藍圖 `firebase-blueprint.json`、安全規格 `security_spec.md` 與硬化安全規則 `firestore.rules`（強制 `email_verified == true`、擁有者權限檢查、不可變 `revisions`/`snapshotTasks` 保護、欄位白名單與陣列上限控制）。
+  - 新增 `eslint.config.js` 整合 `@firebase/eslint-plugin-security-rules` 進行安全規則靜態稽核。
+
+### 修正與相容性 (Fixed)
+- 新增 `.npmrc`（`legacy-peer-deps=true`），解決 Windows 環境執行 `npm install` 時因 `vite@8` 可選相依與 `esbuild` 產生的 `ERESOLVE` 衝突。
+- 於 `tsconfig.json` 啟用 `"resolveJsonModule": true` 以支援靜態匯入 `firebase-applet-config.json`。
+- 更新頁尾軟體版本顯示為 `v1.1.0` 及對應雲端/本機同步狀態說明。
+
+---
+
 ## [1.0.0] - 2026-11-12
 
 ### 新增 (Added)

@@ -1,6 +1,6 @@
 # 系統架構與演算法文件
 
-本文說明「時程對照台」的資料模型、日期與相依推算邏輯、跨版本差異（Diff）評估引擎，以及前端狀態持久化設計。
+本文說明「時程對照台」的資料模型、日期與相依推算邏輯、跨版本差異（Diff）評估引擎，以及雲端 Firestore 與本機雙軌持久化設計。
 
 ---
 
@@ -9,32 +9,33 @@
 - **前端框架**：React 19 + TypeScript 7（Strict ES2022）
 - **建置工具**：Vite 8（透過 `define.__APP_VERSION__` 注入 `package.json` 版號）
 - **樣式系統**：Tailwind CSS v4（`src/index.css` 定義字體、tabular-nums 數字對齊、基準斜紋樣式與 `@media print` 輸出樣式）
-- **圖示套件**：`lucide-react`
+- **雲端資料庫與驗證**：Firebase Authentication（Google Sign-In）+ Cloud Firestore
+- **圖示與安全稽核**：`lucide-react`、`@firebase/eslint-plugin-security-rules`
 
 ---
 
-## 2. 核心資料模型 (`src/types/schedule.ts`)
+## 2. 核心資料模型 (`src/types/schedule.ts` & `firebase-blueprint.json`)
 
 ```text
-ProjectPlan
- ├── code, name, owner, referenceDate
+ProjectPlan (/projects/{projectId})
+ ├── ownerId, code, name, owner, referenceDate
  ├── issueStats        # 狀態快照（總問題數、已解決、未解、待確認標籤）
  ├── pendingNote       # 補充與待確認事項
- ├── phases[]          # 階段定義 (001 / 002 / 003, 含顏色分類)
- ├── tasks[]           # 現行編輯中的任務與里程碑清單
- ├── checkpoints[]     # 查核點時程與溝通回覆紀錄
- └── revisions[]       # 不可變的歷史版本快照 (PlanRevision)
+ ├── phases[]          # 階段定義 (001 / 002 / 003, 上限 10 筆)
+ ├── tasks[]           # 子集合 /tasks/{taskId}：現行任務與里程碑清單
+ ├── checkpoints[]     # 子集合 /checkpoints/{checkpointId}：查核點溝通紀錄
+ └── revisions[]       # 子集合 /revisions/{revisionId}：不可變歷史版本快照
        ├── version     # 版號字串 (例如 v1.0, v1.1, v1.2, v1.0.0)
        ├── category    # 變更歸因：初始基準 | 客戶延遲 | 需求變更 | 技術調整 | 測試複驗
        ├── reason      # 詳細修正原因與決議依據
        ├── impactSummary
-       ├── snapshotTasks[]   # 該版次凍結的任務與工期快照
-       └── snapshotPhases[]  # 該版次凍結的階段定義
+       ├── snapshotPhases[]  # 該版次凍結的階段定義
+       └── snapshotTasks[]   # 子集合 /snapshotTasks/{taskId}：凍結的任務與工期快照
 ```
 
 ### 任務與里程碑規格 (`ScheduleTask`)
 - `type: 'task' | 'milestone'`
-  - 當 `type === 'milestone'` 時，`durationDays` 固定為 `0` 且 `endDate === startDate`，可附帶 `tags[]`（交付物標籤）與 `dateSubLabel`（如 `d+20`）。
+  - 當 `type === 'milestone'` 時，`durationDays` 固定為 `0` 且 `endDate === startDate`，可附帶 `tags[]`（交付物標籤，上限 10 筆）與 `dateSubLabel`（如 `d+20`）。
   - 當 `type === 'task'` 時，`durationDays >= 1`，採含首尾日曆天計算：`endDate = addDays(startDate, durationDays - 1)`。
 
 ---
@@ -76,8 +77,12 @@ ProjectPlan
 
 ---
 
-## 5. 本地持久化與列印規範
+## 5. 雲端同步、安全規則與本機持久化
 
-- **LocalStorage 鍵值**：`planpulse_schedule_projects_v2`
-- **自動同步**：每次修改任務、查核點、待確認事項、建立新專案或儲存修訂版時，透過 `React.useEffect` 即時序列化儲存，並提供「重設範例」按鈕隨時還原預設 `J261113` 專案狀態。
+- **雙軌儲存模式 (`src/App.tsx`, `src/services/projectRepository.ts`)**：
+  - **已登入狀態**：透過 `fetchUserProjects(uid)` 載入個人專屬專案樹；任務與備註編輯採用 450ms debounce 批次同步（`writeBatch`），新建專案會先建立父文件再批次寫入子集合，刪除專案則先清除所有子集合再刪除主文件。
+  - **未登入狀態**：自動回退至 `localStorage`（鍵值：`planpulse_schedule_projects_v2`），確保零門檻本機評估使用。
+- **Firestore 安全規則 (`firestore.rules`)**：
+  - 預設全面拒絕（`allow read, write: if false`），所有讀寫要求 `request.auth != null && request.auth.token.email_verified == true` 且 `ownerId == request.auth.uid`。
+  - 所有歷史修訂快照（`revisions` 與 `snapshotTasks`）設定 `allow update: if false` 確保審計軌跡不可竄改；詳細紅隊測試情境請見 `security_spec.md`。
 - **列印樣式**：所有操作按鈕列、控制欄與頁尾均加上 `.no-print` 類別，於列印或轉存 PDF 時僅保留純淨簡報視圖與差異對照表。

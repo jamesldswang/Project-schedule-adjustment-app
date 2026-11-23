@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "Project": {
+      "title": "Project",
+      "description": "A project schedule plan owned by an authenticated user.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string", "description": "Firebase Auth UID of the project owner." },
+        "code": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "referenceDate": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "pendingNote": { "type": "string", "maxLength": 2000 },
+        "issueStats": { "type": "object" },
+        "phases": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ownerId", "code", "name", "owner", "referenceDate", "pendingNote", "issueStats", "phases", "createdAt", "updatedAt"]
+    },
+    "ScheduleTask": {
+      "title": "ScheduleTask",
+      "description": "A task or milestone belonging to a project.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string" },
+        "phaseId": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "type": { "type": "string", "enum": ["task", "milestone"] },
+        "startDate": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "durationDays": { "type": "number" },
+        "endDate": { "type": "string", "minLength": 1, "maxLength": 20 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "status": { "type": "string", "enum": ["not_started", "in_progress", "waiting_client", "completed", "delayed"] },
+        "progress": { "type": "number" },
+        "dependsOn": { "type": "string" },
+        "tags": { "type": "array" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "dateSubLabel": { "type": "string", "maxLength": 40 },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "phaseId", "name", "type", "startDate", "durationDays", "endDate", "owner", "status", "progress", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "CheckpointItem": {
+      "title": "CheckpointItem",
+      "description": "A milestone review or client communication checkpoint log entry.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string" },
+        "date": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "owner": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "note": { "type": "string", "maxLength": 1000 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "date", "title", "owner", "note", "version", "createdAt", "updatedAt"]
+    },
+    "PlanRevision": {
+      "title": "PlanRevision",
+      "description": "An immutable baseline revision snapshot with recorded reason and impact.",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "ownerId": { "type": "string" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "createdAtLabel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "author": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": { "type": "string", "enum": ["初始基準", "客戶延遲", "需求變更", "技術調整", "測試複驗"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "impactSummary": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "snapshotPhases": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "ownerId", "version", "title", "createdAtLabel", "author", "category", "reason", "impactSummary", "snapshotPhases", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "User-owned project schedule root documents."
+    },
+    "/projects/{projectId}/tasks/{taskId}": {
+      "schema": { "$ref": "#/entities/ScheduleTask" },
+      "description": "Tasks and milestones inside a project."
+    },
+    "/projects/{projectId}/checkpoints/{checkpointId}": {
+      "schema": { "$ref": "#/entities/CheckpointItem" },
+      "description": "Audit checkpoint communication logs for a project."
+    },
+    "/projects/{projectId}/revisions/{revisionId}": {
+      "schema": { "$ref": "#/entities/PlanRevision" },
+      "description": "Versioned baseline snapshots with revision rationale."
+    },
+    "/projects/{projectId}/revisions/{revisionId}/snapshotTasks/{taskId}": {
+      "schema": { "$ref": "#/entities/ScheduleTask" },
+      "description": "Frozen task snapshots captured for a specific plan revision."
+    }
+  }
+}

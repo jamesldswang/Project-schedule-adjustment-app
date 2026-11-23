@@ -1,0 +1,249 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isProjectOwner(projectId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/projects/$(projectId))
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+    }
+
+    function isValidIssueStats(stats) {
+      return stats is map
+        && stats.keys().hasAll(['total', 'resolved', 'unresolved', 'pendingLabel'])
+        && stats.keys().hasOnly(['total', 'resolved', 'unresolved', 'pendingLabel'])
+        && stats.total is number && stats.total >= 0 && stats.total <= 10000
+        && stats.resolved is number && stats.resolved >= 0 && stats.resolved <= 10000
+        && stats.unresolved is number && stats.unresolved >= 0 && stats.unresolved <= 10000
+        && stats.pendingLabel is string && stats.pendingLabel.size() <= 60;
+    }
+
+    function isValidPhaseList(phases) {
+      return phases is list
+        && phases.size() >= 1
+        && phases.size() <= 10
+        && phases[0] is map
+        && phases[0].keys().hasAll(['id', 'code', 'name', 'color'])
+        && phases[0].keys().hasOnly(['id', 'code', 'name', 'color'])
+        && phases[0].id is string && phases[0].id.size() <= 40
+        && phases[0].code is string && phases[0].code.size() <= 20
+        && phases[0].name is string && phases[0].name.size() <= 100
+        && phases[0].color in ['amber', 'blue', 'red', 'emerald'];
+    }
+
+    function isValidTagList(tags) {
+      return tags is list
+        && tags.size() <= 10
+        && (tags.size() == 0 || (tags[0] is string && tags[0].size() <= 120));
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll([
+          'ownerId', 'code', 'name', 'owner', 'referenceDate',
+          'pendingNote', 'issueStats', 'phases', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'code', 'name', 'owner', 'referenceDate',
+          'pendingNote', 'issueStats', 'phases', 'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string && data.ownerId == request.auth.uid
+        && data.code is string && data.code.size() >= 1 && data.code.size() <= 32
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 160
+        && data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 80
+        && data.referenceDate is string && data.referenceDate.size() >= 1 && data.referenceDate.size() <= 20
+        && data.pendingNote is string && data.pendingNote.size() <= 2000
+        && isValidIssueStats(data.issueStats)
+        && isValidPhaseList(data.phases)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTask(data, projectId) {
+      return data.keys().hasAll([
+          'projectId', 'ownerId', 'phaseId', 'name', 'type', 'startDate',
+          'durationDays', 'endDate', 'owner', 'status', 'progress',
+          'sortOrder', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'projectId', 'ownerId', 'phaseId', 'name', 'type', 'startDate',
+          'durationDays', 'endDate', 'owner', 'status', 'progress',
+          'dependsOn', 'tags', 'notes', 'dateSubLabel', 'sortOrder',
+          'createdAt', 'updatedAt'
+        ])
+        && data.projectId is string && data.projectId == projectId
+        && data.ownerId is string && data.ownerId == request.auth.uid
+        && data.phaseId is string && data.phaseId.size() >= 1 && data.phaseId.size() <= 40
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 200
+        && data.type in ['task', 'milestone']
+        && data.startDate is string && data.startDate.size() >= 1 && data.startDate.size() <= 20
+        && data.durationDays is number && data.durationDays >= 0 && data.durationDays <= 3650
+        && data.endDate is string && data.endDate.size() >= 1 && data.endDate.size() <= 20
+        && data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 80
+        && data.status in ['not_started', 'in_progress', 'waiting_client', 'completed', 'delayed']
+        && data.progress is number && data.progress >= 0 && data.progress <= 100
+        && (!('dependsOn' in data) || data.dependsOn == null || (data.dependsOn is string && data.dependsOn.size() <= 128))
+        && (!('tags' in data) || isValidTagList(data.tags))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000))
+        && (!('dateSubLabel' in data) || (data.dateSubLabel is string && data.dateSubLabel.size() <= 40))
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 100000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCheckpoint(data, projectId) {
+      return data.keys().hasAll([
+          'projectId', 'ownerId', 'date', 'title', 'owner', 'note', 'version', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'projectId', 'ownerId', 'date', 'title', 'owner', 'note', 'version', 'createdAt', 'updatedAt'
+        ])
+        && data.projectId is string && data.projectId == projectId
+        && data.ownerId is string && data.ownerId == request.auth.uid
+        && data.date is string && data.date.size() >= 1 && data.date.size() <= 32
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 80
+        && data.note is string && data.note.size() <= 1000
+        && data.version is string && data.version.size() >= 1 && data.version.size() <= 32
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidRevision(data, projectId) {
+      return data.keys().hasAll([
+          'projectId', 'ownerId', 'version', 'title', 'createdAtLabel',
+          'author', 'category', 'reason', 'impactSummary', 'snapshotPhases', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'projectId', 'ownerId', 'version', 'title', 'createdAtLabel',
+          'author', 'category', 'reason', 'impactSummary', 'snapshotPhases', 'createdAt'
+        ])
+        && data.projectId is string && data.projectId == projectId
+        && data.ownerId is string && data.ownerId == request.auth.uid
+        && data.version is string && data.version.size() >= 1 && data.version.size() <= 32
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.createdAtLabel is string && data.createdAtLabel.size() >= 1 && data.createdAtLabel.size() <= 40
+        && data.author is string && data.author.size() >= 1 && data.author.size() <= 80
+        && data.category in ['初始基準', '客戶延遲', '需求變更', '技術調整', '測試複驗']
+        && data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 2000
+        && data.impactSummary is string && data.impactSummary.size() >= 1 && data.impactSummary.size() <= 1000
+        && isValidPhaseList(data.snapshotPhases)
+        && data.createdAt is timestamp;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn()
+        && isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn()
+        && isValidId(projectId)
+        && existing().ownerId == request.auth.uid
+        && isValidProject(incoming())
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'code', 'name', 'owner', 'referenceDate', 'pendingNote', 'issueStats', 'phases', 'updatedAt'
+        ]);
+      allow delete: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
+
+      match /tasks/{taskId} {
+        allow get: if isValidId(projectId) && isValidId(taskId) && isProjectOwner(projectId);
+        allow list: if isSignedIn() && isValidId(projectId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(projectId)
+          && isValidId(taskId)
+          && isProjectOwner(projectId)
+          && isValidTask(incoming(), projectId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(projectId)
+          && isValidId(taskId)
+          && isProjectOwner(projectId)
+          && isValidTask(incoming(), projectId)
+          && incoming().projectId == existing().projectId
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'phaseId', 'name', 'type', 'startDate', 'durationDays', 'endDate',
+            'owner', 'status', 'progress', 'dependsOn', 'tags', 'notes',
+            'dateSubLabel', 'sortOrder', 'updatedAt'
+          ]);
+        allow delete: if isValidId(projectId) && isValidId(taskId) && isProjectOwner(projectId);
+      }
+
+      match /checkpoints/{checkpointId} {
+        allow get: if isValidId(projectId) && isValidId(checkpointId) && isProjectOwner(projectId);
+        allow list: if isSignedIn() && isValidId(projectId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(projectId)
+          && isValidId(checkpointId)
+          && isProjectOwner(projectId)
+          && isValidCheckpoint(incoming(), projectId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(projectId)
+          && isValidId(checkpointId)
+          && isProjectOwner(projectId)
+          && isValidCheckpoint(incoming(), projectId)
+          && incoming().projectId == existing().projectId
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && incoming().diff(existing()).affectedKeys().hasOnly([
+            'date', 'title', 'owner', 'note', 'version', 'updatedAt'
+          ]);
+        allow delete: if isValidId(projectId) && isValidId(checkpointId) && isProjectOwner(projectId);
+      }
+
+      match /revisions/{revisionId} {
+        allow get: if isValidId(projectId) && isValidId(revisionId) && isProjectOwner(projectId);
+        allow list: if isSignedIn() && isValidId(projectId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(projectId)
+          && isValidId(revisionId)
+          && isProjectOwner(projectId)
+          && isValidRevision(incoming(), projectId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(projectId) && isValidId(revisionId) && isProjectOwner(projectId);
+
+        match /snapshotTasks/{taskId} {
+          allow get: if isValidId(projectId) && isValidId(revisionId) && isValidId(taskId) && isProjectOwner(projectId);
+          allow list: if isSignedIn() && isValidId(projectId) && isValidId(revisionId) && resource.data.ownerId == request.auth.uid;
+          allow create: if isValidId(projectId)
+            && isValidId(revisionId)
+            && isValidId(taskId)
+            && isProjectOwner(projectId)
+            && isValidTask(incoming(), projectId)
+            && incoming().createdAt == request.time
+            && incoming().updatedAt == request.time;
+          allow update: if false;
+          allow delete: if isValidId(projectId) && isValidId(revisionId) && isValidId(taskId) && isProjectOwner(projectId);
+        }
+      }
+    }
+  }
+}
