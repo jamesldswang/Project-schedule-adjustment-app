@@ -81,11 +81,19 @@ export interface IssueSnapshot {
   pendingLabel: string;
 }
 
+/** 專案成員：一個角色對應一個 Email（id 區分同名角色，例如兩位 Frontend RD）。 */
+export interface ProjectMember {
+  id: string;
+  role: string;
+  email: string;
+}
+
 export interface ProjectPlan {
   id: string;
   code: string; // e.g. P260102
   name: string;
   owner: string;
+  members?: ProjectMember[];
   referenceDate: string; // e.g. 2026-11-09
   issueStats: IssueSnapshot;
   pendingNote: string;

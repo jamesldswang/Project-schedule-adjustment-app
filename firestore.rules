@@ -58,13 +58,26 @@ service cloud.firestore {
         && (tags.size() == 0 || (tags[0] is string && tags[0].size() <= 120));
     }
 
+    function isValidMemberList(members) {
+      return members is list
+        && members.size() <= 40
+        && (members.size() == 0 || (
+          members[0] is map
+          && members[0].keys().hasAll(['id', 'role', 'email'])
+          && members[0].keys().hasOnly(['id', 'role', 'email'])
+          && members[0].id is string && members[0].id.size() <= 40
+          && members[0].role is string && members[0].role.size() <= 60
+          && members[0].email is string && members[0].email.size() <= 120
+        ));
+    }
+
     function isValidProject(data) {
       return data.keys().hasAll([
           'ownerId', 'code', 'name', 'owner', 'referenceDate',
           'pendingNote', 'issueStats', 'phases', 'createdAt', 'updatedAt'
         ])
         && data.keys().hasOnly([
-          'ownerId', 'code', 'name', 'owner', 'referenceDate',
+          'ownerId', 'code', 'name', 'owner', 'members', 'referenceDate',
           'pendingNote', 'issueStats', 'phases', 'createdAt', 'updatedAt'
         ])
         && data.ownerId is string && data.ownerId == request.auth.uid
@@ -73,6 +86,7 @@ service cloud.firestore {
         && data.owner is string && data.owner.size() >= 1 && data.owner.size() <= 80
         && data.referenceDate is string && data.referenceDate.size() >= 1 && data.referenceDate.size() <= 20
         && data.pendingNote is string && data.pendingNote.size() <= 2000
+        && (!('members' in data) || isValidMemberList(data.members))
         && isValidIssueStats(data.issueStats)
         && isValidPhaseList(data.phases)
         && data.createdAt is timestamp
@@ -168,7 +182,7 @@ service cloud.firestore {
         && incoming().createdAt == existing().createdAt
         && incoming().updatedAt == request.time
         && incoming().diff(existing()).affectedKeys().hasOnly([
-          'code', 'name', 'owner', 'referenceDate', 'pendingNote', 'issueStats', 'phases', 'updatedAt'
+          'code', 'name', 'owner', 'members', 'referenceDate', 'pendingNote', 'issueStats', 'phases', 'updatedAt'
         ]);
       allow delete: if isSignedIn() && isValidId(projectId) && existing().ownerId == request.auth.uid;
 

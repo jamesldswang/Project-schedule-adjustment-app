@@ -52,7 +52,7 @@ export function TasksEditorView({
     tasks[tasks.length - 1]?.endDate || '2026-11-12',
   );
   const [newDuration, setNewDuration] = useState<number>(7);
-  const [newOwner, setNewOwner] = useState<string>('Julian');
+  const [newOwner, setNewOwner] = useState<string>('負責人');
   const [newDependsOn, setNewDependsOn] = useState<string>('');
   const [newNotes, setNewNotes] = useState<string>('');
 
@@ -319,7 +319,7 @@ export function TasksEditorView({
                 type="text"
                 value={newOwner}
                 onChange={(e) => setNewOwner(e.target.value)}
-                placeholder="Julian / 後端組"
+                placeholder="負責人 / 後端組"
                 className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>

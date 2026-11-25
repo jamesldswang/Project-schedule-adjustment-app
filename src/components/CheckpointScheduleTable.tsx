@@ -57,7 +57,7 @@ export function CheckpointScheduleTable({ project, onUpdateCheckpoints }: Checkp
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [cpDate, setCpDate] = useState('');
   const [cpTitle, setCpTitle] = useState('');
-  const [cpOwner, setCpOwner] = useState(project.owner);
+  const [cpOwner, setCpOwner] = useState('負責人');
   const [cpNote, setCpNote] = useState('');
   const [cpVersion, setCpVersion] = useState(
     project.revisions[project.revisions.length - 1]?.version.replace('v', '') || '1.0',
@@ -115,7 +115,7 @@ export function CheckpointScheduleTable({ project, onUpdateCheckpoints }: Checkp
       id: `cp-${Date.now()}`,
       date: cpDate.trim() || '-',
       title: cpTitle.trim(),
-      owner: cpOwner.trim() || project.owner,
+      owner: cpOwner.trim() || '負責人',
       note: cpNote.trim(),
       version: cpVersion.trim() || '1.0',
       tasks: [],

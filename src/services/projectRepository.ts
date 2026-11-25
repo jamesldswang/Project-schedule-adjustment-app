@@ -17,6 +17,7 @@ import {
   CheckpointTask,
   PhaseInfo,
   PlanRevision,
+  ProjectMember,
   ProjectPlan,
   ScheduleTask,
 } from '../types/schedule';
@@ -53,6 +54,14 @@ function sanitizeTaskPayload(
   }
 
   return payload;
+}
+
+function sanitizeMembers(members: ProjectMember[]): ProjectMember[] {
+  return members.slice(0, 40).map((m) => ({
+    id: String(m.id).slice(0, 40),
+    role: String(m.role).slice(0, 60),
+    email: String(m.email || '').slice(0, 120),
+  }));
 }
 
 function sanitizePhases(phases: PhaseInfo[]): PhaseInfo[] {
@@ -185,6 +194,9 @@ export async function fetchUserProjects(uid: string): Promise<ProjectPlan[]> {
         code: String(pData.code || ''),
         name: String(pData.name || ''),
         owner: String(pData.owner || ''),
+        ...(Array.isArray(pData.members)
+          ? { members: sanitizeMembers(pData.members as ProjectMember[]) }
+          : {}),
         referenceDate: String(pData.referenceDate || ''),
         pendingNote: String(pData.pendingNote || ''),
         issueStats: pData.issueStats as ProjectPlan['issueStats'],
@@ -210,6 +222,7 @@ export async function createProjectInDb(uid: string, project: ProjectPlan): Prom
       code: project.code.slice(0, 32),
       name: project.name.slice(0, 160),
       owner: project.owner.slice(0, 80),
+      ...(project.members ? { members: sanitizeMembers(project.members) } : {}),
       referenceDate: project.referenceDate.slice(0, 20),
       pendingNote: project.pendingNote.slice(0, 2000),
       issueStats: {
@@ -319,6 +332,23 @@ export async function updateProjectPendingNoteInDb(
   try {
     await updateDoc(doc(db, 'projects', projectId), {
       pendingNote: pendingNote.slice(0, 2000),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function updateProjectMembersInDb(
+  projectId: string,
+  members: ProjectMember[],
+  owner: string,
+): Promise<void> {
+  const path = `projects/${projectId}`;
+  try {
+    await updateDoc(doc(db, 'projects', projectId), {
+      members: sanitizeMembers(members),
+      owner: owner.slice(0, 80),
       updatedAt: serverTimestamp(),
     });
   } catch (err) {

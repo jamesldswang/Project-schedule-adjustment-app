@@ -11,6 +11,19 @@
         "owner": { "type": "string", "minLength": 1, "maxLength": 80 },
         "referenceDate": { "type": "string", "minLength": 1, "maxLength": 20 },
         "pendingNote": { "type": "string", "maxLength": 2000 },
+        "members": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "maxLength": 40 },
+              "role": { "type": "string", "maxLength": 60 },
+              "email": { "type": "string", "maxLength": 120 }
+            },
+            "required": ["id", "role", "email"]
+          }
+        },
         "issueStats": { "type": "object" },
         "phases": { "type": "array" },
         "createdAt": { "type": "string", "format": "date-time" },

@@ -2,6 +2,21 @@
 
 本專案採用語意化版號規範（Semantic Versioning），軟體版號以 `package.json` 為單一來源。
 
+## [1.3.0] - 2026-11-25
+
+### 新增 (Added)
+- **專案成員 (Project member)**：依 Google Sheet「Project member」建立角色名單（`src/data/projectMembers.ts`）。
+  - New 專案時填寫：PM、Frontend RD ×2、Backend RD ×2、UIX、Production ×2 為必填；SV、DevOps、DevOps leader、PM leader、UIX leader、Frontend leader ×2、Backend leader(EVP)、GM 預先帶入預設 Email，Others 留空，皆可修改。
+  - 每個角色以下拉選單從名單中的 25 個 Email 選擇。
+  - 專案資訊列新增「專案成員 N 人」，可隨時開啟修改；有必填未填時以紅字提示。
+- 成員同步至 Firestore（`members` 欄位，`updateProjectMembersInDb`）。
+
+### 變更 (Changed)
+- **負責人由 PM 帶入**：New 專案的負責人欄位改為顯示所選 PM；修改成員時負責人隨 PM 更新。點專案資訊列的「負責人」即開啟成員視窗。
+- 任務與查核點的「權責角色」不再預設人名，改為「負責人」（含範例資料與新專案範本任務）。
+- New 專案的專案編號改為空白必填（提示範例編號）。
+- `firestore.rules` 與 `firebase-blueprint.json` 允許專案文件寫入 `members`（上限 40 筆）。**升級後需重新部署 Firestore 規則。**
+
 ## [1.2.0] - 2026-11-23
 
 ### 新增 (Added)

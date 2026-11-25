@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { ProjectPlan } from '../types/schedule';
 import { addDays, formatISO } from '../utils/dateUtils';
+import { defaultMembers, pmEmail } from '../data/projectMembers';
+import { ProjectMembersFields } from './ProjectMembersFields';
 
 interface NewProjectModalProps {
   existingCount: number;
@@ -19,9 +21,8 @@ export function NewProjectModal({
   const today = formatISO(new Date());
   const defaultCode = `J2611${String(14 + existingCount).padStart(2, '0')}`;
 
-  const [code, setCode] = useState(defaultCode);
+  const [code, setCode] = useState('');
   const [name, setName] = useState('');
-  const [owner, setOwner] = useState('Julian');
   const [initialVersion, setInitialVersion] = useState('v1.0.0');
   const [initialNote, setInitialNote] = useState('專案建立時之初始核定基準時程。');
   const [startDate, setStartDate] = useState(today);
@@ -29,6 +30,8 @@ export function NewProjectModal({
   const [phase2Name, setPhase2Name] = useState('核心系統建置');
   const [phase3Name, setPhase3Name] = useState('整合測試與驗收');
   const [includeStarterTasks, setIncludeStarterTasks] = useState(true);
+  const [members, setMembers] = useState(defaultMembers);
+  const owner = pmEmail(members);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +64,7 @@ export function NewProjectModal({
             startDate,
             durationDays: 0,
             endDate: m1End,
-            owner: owner.trim() || 'PM',
+            owner: '負責人',
             status: 'not_started' as const,
             progress: 0,
             dependsOn: null,
@@ -75,7 +78,7 @@ export function NewProjectModal({
             startDate: t1Start,
             durationDays: 14,
             endDate: t1End,
-            owner: owner.trim() || 'PM',
+            owner: '負責人',
             status: 'not_started' as const,
             progress: 0,
             dependsOn: `t-${uid}-1`,
@@ -114,7 +117,7 @@ export function NewProjectModal({
             startDate: m2Date,
             durationDays: 0,
             endDate: m2Date,
-            owner: owner.trim() || 'PM',
+            owner: '負責人',
             status: 'not_started' as const,
             progress: 0,
             dependsOn: `t-${uid}-4`,
@@ -130,7 +133,7 @@ export function NewProjectModal({
             startDate,
             durationDays: 0,
             endDate: m1End,
-            owner: owner.trim() || 'PM',
+            owner: '負責人',
             status: 'not_started' as const,
             progress: 0,
             dependsOn: null,
@@ -139,9 +142,10 @@ export function NewProjectModal({
 
     const newProject: ProjectPlan = {
       id: `proj-${uid}`,
-      code: code.trim() || defaultCode,
+      code: code.trim(),
       name: name.trim(),
       owner: owner.trim() || 'PM',
+      members,
       referenceDate: today,
       issueStats: {
         total: 0,
@@ -174,7 +178,7 @@ export function NewProjectModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-[1px] flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-lg shadow-lg overflow-hidden">
+      <div className="bg-white border border-slate-200 rounded-xl w-full max-w-3xl max-h-[92vh] shadow-lg overflow-hidden flex flex-col">
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-slate-900">New 新建專案時程計畫</h2>
@@ -191,7 +195,7 @@ export function NewProjectModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">專案編號</label>
@@ -200,18 +204,20 @@ export function NewProjectModal({
                 required
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                placeholder={`例：${defaultCode}`}
                 className="w-full px-3 py-1.5 text-sm font-mono-tabular border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">負責人</label>
-              <input
-                type="text"
-                required
-                value={owner}
-                onChange={(e) => setOwner(e.target.value)}
-                className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              <label className="block text-xs font-medium text-slate-700 mb-1">負責人（= PM）</label>
+              <div
+                title={owner || undefined}
+                className={`w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg bg-slate-50 truncate ${
+                  owner ? 'text-slate-900' : 'text-slate-400'
+                }`}
+              >
+                {owner || '由下方專案成員的 PM 帶入'}
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-700 mb-1">Kickoff 起始日</label>
@@ -236,6 +242,11 @@ export function NewProjectModal({
               placeholder="例：月球南極水冰鑽探中繼站專案"
               className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">專案成員 (Project member)</label>
+            <ProjectMembersFields members={members} onChange={setMembers} />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

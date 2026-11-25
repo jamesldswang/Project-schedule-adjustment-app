@@ -10,6 +10,8 @@ import {
   Trash2,
   LogIn,
   LogOut,
+  Pencil,
+  Users,
 } from 'lucide-react';
 import {
   onAuthStateChanged,
@@ -25,12 +27,14 @@ import {
   fetchUserProjects,
   syncCheckpointsInDb,
   syncProjectTasksInDb,
+  updateProjectMembersInDb,
   updateProjectPendingNoteInDb,
 } from './services/projectRepository';
 import { SEED_PROJECTS } from './data/seedProjects';
 import {
   CheckpointItem,
   PlanRevision,
+  ProjectMember,
   ProjectPlan,
   ScheduleTask,
   ViewMode,
@@ -43,6 +47,8 @@ import { GanttChartView } from './components/GanttChartView';
 import { RevisionDiffView } from './components/RevisionDiffView';
 import { SaveRevisionModal } from './components/SaveRevisionModal';
 import { NewProjectModal } from './components/NewProjectModal';
+import { ProjectMembersModal } from './components/ProjectMembersModal';
+import { isRequiredMemberRole, normalizeMembers, pmEmail } from './data/projectMembers';
 
 const STORAGE_KEY = 'planpulse_schedule_projects_v2';
 
@@ -228,6 +234,26 @@ export default function App() {
           setSyncError('儲存備註失敗，請稍後再試。');
         }
       }, 450);
+    }
+  };
+
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const missingRequiredMembers = normalizeMembers(activeProject.members).filter(
+    (m) => isRequiredMemberRole(m.id) && !m.email,
+  ).length;
+
+  const handleSaveMembers = async (members: ProjectMember[]) => {
+    setShowMembersModal(false);
+    const projectId = activeProject.id;
+    const owner = (pmEmail(members) || activeProject.owner).slice(0, 80);
+    updateActiveProject((proj) => ({ ...proj, members, owner }));
+    if (user) {
+      try {
+        await updateProjectMembersInDb(projectId, members, owner);
+      } catch (err) {
+        console.error('Failed to update members:', err);
+        setSyncError('儲存專案成員失敗，請稍後再試。');
+      }
     }
   };
 
@@ -444,7 +470,15 @@ export default function App() {
             </select>
 
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span>負責人 {activeProject.owner}</span>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(true)}
+                title="負責人由專案成員的 PM 帶入，點此修改"
+                className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+              >
+                負責人 {activeProject.owner}
+                <Pencil className="w-3 h-3" />
+              </button>
               <span aria-hidden="true">·</span>
               <span className="font-mono-tabular">
                 初始基準 {activeProject.revisions[0]?.version || 'v1.0.0'}
@@ -457,6 +491,19 @@ export default function App() {
               <span className="font-mono-tabular">
                 總期程 {totalDuration} 天 ({projectStart} ~ {projectEnd})
               </span>
+              <span aria-hidden="true">·</span>
+              <button
+                type="button"
+                onClick={() => setShowMembersModal(true)}
+                title="檢視／修改專案成員"
+                className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+              >
+                <Users className="w-3.5 h-3.5" />
+                專案成員 {normalizeMembers(activeProject.members).filter((m) => m.email).length} 人
+                {missingRequiredMembers > 0 && (
+                  <span className="text-rose-600 font-semibold">（{missingRequiredMembers} 個必填未填）</span>
+                )}
+              </button>
             </div>
 
             <button
@@ -632,6 +679,14 @@ export default function App() {
           existingCount={projects.length}
           onClose={() => setShowNewProjectModal(false)}
           onCreateProject={handleCreateProject}
+        />
+      )}
+
+      {showMembersModal && (
+        <ProjectMembersModal
+          project={activeProject}
+          onClose={() => setShowMembersModal(false)}
+          onSave={handleSaveMembers}
         />
       )}
 
